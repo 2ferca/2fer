@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>2fer switch</title>
+<link rel="apple-touch-icon" href="logo.png">
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;min-height:100svh;display:grid;place-items:center;background:#141414;color:#eee;
+       font:600 18px/1.4 -apple-system,system-ui,"Segoe UI",Roboto,sans-serif;
+       padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom)}
+  main{width:min(100%,380px);text-align:center}
+  img{width:150px;display:block;margin:0 auto 6px}
+  h1{font-size:24px;margin:0 0 4px}
+  p{margin:0 0 16px;color:#aaa;font-weight:500}
+  #state{font-size:38px;margin:8px 0 22px;font-weight:800}
+  #state.on{color:#2ecc71}#state.off{color:#999}
+  button{width:100%;padding:26px 18px;border:0;border-radius:18px;font:800 28px/1 inherit;color:#fff;cursor:pointer;-webkit-tap-highlight-color:transparent}
+  button:active{transform:scale(.98)}
+  #go{background:#1f9d55}#stop{background:#c0392b}#out{background:#333;font-size:16px;padding:14px;margin-top:22px}
+  input{width:100%;box-sizing:border-box;padding:16px;font:600 20px inherit;border-radius:12px;border:2px solid #444;background:#1c1c1c;color:#fff;margin:0 0 12px}
+  .row{display:grid;gap:14px}
+  #msg{min-height:1.4em;color:#f66;margin-top:14px;font-size:15px}
+  .hide{display:none}
+  #since{font-size:14px;color:#888;margin-top:-14px;margin-bottom:18px}
+</style>
+</head>
+<body>
+<main>
+  <img src="logo.png" alt="2fer.ca">
+  <h1>Truck switch</h1>
+
+  <div id="login">
+    <p>Sign in once; your phone stays signed in.</p>
+    <input id="email" type="email" value="buddy@2fer.ca" autocomplete="username">
+    <input id="pass" type="password" placeholder="Password" autocomplete="current-password">
+    <button id="signin" style="background:#ca292c">Sign in</button>
+  </div>
+
+  <div id="panel" class="hide">
+    <div id="state" class="off">Checking…</div>
+    <div id="since"></div>
+    <div class="row">
+      <button id="go">GO ONLINE</button>
+      <button id="stop">GO OFFLINE</button>
+    </div>
+    <button id="out">Sign out</button>
+  </div>
+  <div id="msg"></div>
+</main>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCdr14Tv_1Qzbp3Kuyrwc1sCAo0gZRXXFU",
+    authDomain: "fer-864bf.firebaseapp.com",
+    databaseURL: "https://fer-864bf-default-rtdb.firebaseio.com",
+    projectId: "fer-864bf",
+    appId: "1:902920889250:web:c0a19e2ffa07c96a6188fb"
+  });
+  const auth = firebase.auth(), db = firebase.database();
+  const $ = id => document.getElementById(id);
+  const ref = db.ref('twofer/status');
+
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
+
+  $('signin').onclick = async () => {
+    $('msg').textContent = '';
+    try { await auth.signInWithEmailAndPassword($('email').value.trim(), $('pass').value); }
+    catch (e) { $('msg').textContent = e.code === 'auth/invalid-credential' ? 'Wrong email or password' : e.message; }
+  };
+  $('out').onclick = () => auth.signOut();
+
+  auth.onAuthStateChanged(u => {
+    $('login').classList.toggle('hide', !!u);
+    $('panel').classList.toggle('hide', !u);
+  });
+
+  ref.on('value', snap => {
+    const v = snap.val() || {};
+    $('state').textContent = v.online ? '● ONLINE' : '○ OFFLINE';
+    $('state').className = v.online ? 'on' : 'off';
+    $('since').textContent = v.since ? ('since ' + new Date(v.since).toLocaleTimeString([], {hour:'numeric', minute:'2-digit'})) : '';
+  });
+
+  async function setOnline(on) {
+    $('msg').textContent = '';
+    try {
+      await ref.set({ online: on, since: Date.now() });
+      if (navigator.vibrate) navigator.vibrate(30);
+    } catch (e) { $('msg').textContent = 'Could not save: ' + (e.code || e.message); }
+  }
+  $('go').onclick = () => setOnline(true);
+  $('stop').onclick = () => setOnline(false);
+</script>
+</body>
+</html>
